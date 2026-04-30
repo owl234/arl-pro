@@ -1,0 +1,7 @@
+/* =========================================================
+   清除 Vite 默认样式，注入 ARL 原版纯净字体栈
+   这会让 Windows 系统的 ClearType 重新接管字体渲染，消除发虚感
+========================================================= */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}

@@ -1,0 +1,93 @@
+version: '3'
+
+volumes:
+  arl_db_local:
+
+services:
+  # 🚀 1. 前端 Nginx 服务
+  frontend:
+    image: arl_frontend_test:latest
+    container_name: arl_frontend_local
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+  # ⚙️ 2. 后端 Web API 服务
+  backend:
+    image: arl_backend_test:latest
+    container_name: arl_backend_local
+    build: ./backend
+    ports:
+      - "5003:5000" # 👈 新增：将容器的 5000 端口映射到本地的 5003，供 Vite 代理
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      # 👈 新增：将本地的 backend 代码完整挂载到容器内 (假设容器内工作目录是 /code)
+      - ./backend:/code
+      - ./backend/poc:/opt/ARL-NPoC/xing/plugins/upload_poc
+      - ./backend/wait-for-it.sh:/usr/bin/wait-for-it.sh
+      - ./backend/GeoLite2:/data/GeoLite2
+        # 👈 修改：在 gunicorn 命令末尾加上 --reload 参数
+    entrypoint: [ "sh", "-c", "sh /usr/bin/wait-for-it.sh mongodb:27017; sh /usr/bin/wait-for-it.sh rabbitmq:5672; gunicorn -b 0.0.0.0:5000 app.main:arl_app -w 3 --reload" ]
+
+  # 👷 3. 核心扫描节点 (对应旧版的 arl-worker)
+  worker:
+    image: arl_backend_test:latest
+    container_name: arl_worker_local
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend:/code # 👈 新增：同样挂载代码，确保 worker 也是最新逻辑
+      - ./backend/GeoLite2:/data/GeoLite2
+    # 启动 Celery worker
+    entrypoint: ["sh", "-c", "sh /usr/bin/wait-for-it.sh mongodb:27017; sh /usr/bin/wait-for-it.sh rabbitmq:5672; celery -A app.celerytask.celery worker -Q arltask -n arltask -c 2 -O fair -l info"]
+
+  # 🕵️ 4. GitHub 监控节点 (对应旧版的 arl-worker-github)
+  worker-github:
+    image: arl_backend_test:latest
+    container_name: arl_worker_github_local
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend:/code # 👈 新增：同样挂载代码，确保 worker 也是最新逻辑
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "wait-for-it.sh mongodb:27017; wait-for-it.sh rabbitmq:5672; celery -A app.celerytask.celery worker -Q github -n github -c 2"]
+
+  # ⏱️ 5. 定时调度器 (对应旧版的 arl-scheduler)
+  scheduler:
+    image: arl_backend_test:latest
+    container_name: arl_scheduler_local
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend:/code # 👈 新增：同样挂载代码，确保 worker 也是最新逻辑
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "wait-for-it.sh mongodb:27017; wait-for-it.sh rabbitmq:5672; python3 -m app.scheduler"]
+
+  # 🗄️ 6. 数据库
+  mongodb:
+    image: mongo:4.0.27
+    container_name: arl_mongodb_local
+    restart: always
+    volumes:
+      - arl_db_local:/data/db
+    environment: # 🚀 补上这三行，让它在全新启动时注入 admin 账号！
+      - MONGO_INITDB_DATABASE=arl
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+
+  # 🐇 7. 消息队列
+  rabbitmq:
+    image: rabbitmq:3.13.1-management-alpine
+    container_name: arl_rabbitmq_local
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_PASS=arlpassword
+      - RABBITMQ_DEFAULT_USER=arl
+      - RABBITMQ_DEFAULT_VHOST=arlv2host
