@@ -1,0 +1,81 @@
+version: '3'
+
+volumes:
+  arl_db_test:
+
+services:
+  # 🚀 1. 前端 Nginx
+  frontend:
+    image: ghcr.io/owl234/arl-frontend:latest
+    container_name: arl_frontend_test
+    ports:
+      - "80:80" # 将虚拟机的 80 端口暴露给您访问
+    depends_on:
+      - backend
+
+  # ⚙️ 2. 后端 Web API
+  backend:
+    image: ghcr.io/owl234/arl-backend:latest
+    container_name: arl_backend_test
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      # 部署时不挂载代码，只挂载依赖数据库和配置
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "sh /usr/bin/wait-for-it.sh mongodb:27017; sh /usr/bin/wait-for-it.sh rabbitmq:5672; gunicorn -b 0.0.0.0:5000 app.main:arl_app -w 3"]
+
+  # 👷 3. 核心扫描节点
+  worker:
+    image: ghcr.io/owl234/arl-backend:latest
+    container_name: arl_worker_test
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "sh /usr/bin/wait-for-it.sh mongodb:27017; sh /usr/bin/wait-for-it.sh rabbitmq:5672; celery -A app.celerytask.celery worker -Q arltask -n arltask -c 2 -O fair -l info"]
+
+  # 🕵️ 4. GitHub 监控节点
+  worker-github:
+    image: ghcr.io/owl234/arl-backend:latest
+    container_name: arl_worker_github_test
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "wait-for-it.sh mongodb:27017; wait-for-it.sh rabbitmq:5672; celery -A app.celerytask.celery worker -Q github -n github -c 2"]
+
+  # ⏱️ 5. 定时调度器
+  scheduler:
+    image: ghcr.io/owl234/arl-backend:latest
+    container_name: arl_scheduler_test
+    depends_on:
+      - mongodb
+      - rabbitmq
+    volumes:
+      - ./backend/GeoLite2:/data/GeoLite2
+    entrypoint: ["sh", "-c", "wait-for-it.sh mongodb:27017; wait-for-it.sh rabbitmq:5672; python3 -m app.scheduler"]
+
+  # 🗄️ 6. 数据库 (与 local 保持一致，保留初始密码)
+  mongodb:
+    image: mongo:4.0.27
+    container_name: arl_mongodb_test
+    restart: always
+    volumes:
+      - arl_db_test:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=arl
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+
+  # 🐇 7. 消息队列
+  rabbitmq:
+    image: rabbitmq:3.13.1-management-alpine
+    container_name: arl_rabbitmq_test
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_PASS=arlpassword
+      - RABBITMQ_DEFAULT_USER=arl
+      - RABBITMQ_DEFAULT_VHOST=arlv2host

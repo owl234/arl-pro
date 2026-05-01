@@ -53,3 +53,27 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+    # ... (上面的 build-and-push-images 保持不变) ...
+
+  deploy-to-test-vm:
+      needs: build-and-push-images # 等待构建完成后再执行
+      runs-on: self-hosted # 👈 极其关键！指定使用您虚拟机里的内应
+
+      steps:
+        - name: 检出代码 (获取 docker-compose.test.yml)
+          uses: actions/checkout@v4
+
+        - name: 登录 GHCR 私有仓库
+          uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: 拉取镜像并启动服务
+          run: |
+            docker compose -f docker-compose.test.yml pull
+            docker compose -f docker-compose.test.yml up -d
+
+        - name: 清理废弃镜像 (释放虚拟机空间)
+          run: docker image prune -f
