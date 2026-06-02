@@ -77,10 +77,8 @@ services:
     restart: always
     volumes:
       - arl_db_local:/data/db
-    environment: # 🚀 补上这三行，让它在全新启动时注入 admin 账号！
-      - MONGO_INITDB_DATABASE=arl
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
+      # 👇 新增这一行：将初始化脚本挂载到 MongoDB 的开机自启目录
+      - ./init-mongo-account.js:/docker-entrypoint-initdb.d/init-mongo-account.js:ro
 
   # 🐇 7. 消息队列
   rabbitmq:
