@@ -17,16 +17,24 @@ jobs:
           sed -i 's/\r$//' backend/wait-for-it.sh
           chmod +x backend/wait-for-it.sh
 
-      # 🚀 新增：环境自动装甲兵！
+      # 🚀 升级版：环境自动装甲兵 (二进制直装版，免 sudo)
       - name: ⚙️ Check and Install Docker Compose
         run: |
-          # 检查是否安装了带空格的 docker compose 或带横杠的 docker-compose
           if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
-            echo "⚠️ 检测到未安装 Docker Compose，开始全自动安装..."
-            sudo apt-get update
-            # -y 参数很重要，防止安装过程中跳出 [Y/n] 提示导致流水线卡死
-            sudo apt-get install -y docker-compose-plugin
-            echo "✅ Docker Compose 安装完成！"
+            echo "⚠️ 检测到未安装 Docker Compose，开始通过官方二进制直装..."
+          
+            # 1. 在当前用户目录下创建 Docker 插件专属文件夹
+            mkdir -p ~/.docker/cli-plugins/
+          
+            # 2. 从官方直接下载最新稳定版 (v2)
+            curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+          
+            # 3. 赋予可执行权限
+            chmod +x ~/.docker/cli-plugins/docker-compose
+          
+            echo "✅ Docker Compose (用户级) 安装完成！"
+            # 验证安装
+            docker compose version
           else
             echo "✅ 环境检测通过：Docker Compose 已就绪。"
           fi
