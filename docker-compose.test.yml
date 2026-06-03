@@ -75,10 +75,8 @@ services:
     restart: always
     volumes:
       - arl_db_test:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=arl
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - # 👇 补上这行，将仓库中的初始化脚本挂载到容器的启动执行目录
+      - ./init-mongo-account.js:/docker-entrypoint-initdb.d/init-mongo-account.js:ro
 
   # 🐇 7. 消息队列
   rabbitmq:
