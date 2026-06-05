@@ -20,34 +20,29 @@
 
 ## ✨ 核心特性 (Features)
 
+* **🛡️ 零信任架构与全链路 HTTPS (New)**
+  彻底解决浏览器安全限制与公网暴露风险。本地开发采用 `mkcert` 无缝实现 HTTPS 热重载；生产环境引入 Cloudflare Tunnel 内网穿透，服务器实现**“零入站端口”**暴露，完美隐身于公网扫描器与 DDoS 攻击之外，并享受免维护的长效边缘证书。
 * **🔥 现代化前后端分离架构**
   彻底告别臃肿。前端基于 Vue 3 + Vite 构建现代化 SPA 面板，后端依托 Python 3.8+ 与 Flask 提供纯粹的 RESTful API。这带来了毫秒级的交互体验和极佳的二次开发扩展性。
-
 * **⚡ 全自动 CI/CD 敏捷交付**
   时间应该花在挖掘逻辑上，而不是运维上。本项目已完全打通 GitHub Actions 自动化流水线。代码一经 Push，系统自动在云端构建不可变的纯净 Docker 镜像，并跨网络全自动部署到你的生产节点，实现基础设施的“丝滑热更”。
-
 * **🌍 生产级分布式调度与高并发**
   以 RabbitMQ 为消息中枢，Celery 分布式工作节点为执行引擎。你可以轻松将核心扫描 Worker 和专门的 GitHub 敏感信息监控 Worker 分散部署，实现真正的高并发多节点协同扫描。
-
 * **⚔️ 硬核武器库无缝集成**
   内置庞大且不断更新的 ARL-NPoC 武器库，并无缝对接 FOFA 等第三方资产引擎。结合资产梳理、指纹识别、端口扫描，实现从“发现资产”到“自动打出 Payload”的完整闭环。
-
-* **🛡️ 7x24 高可用与容灾监控**
-  生产环境编排全面引入 `restart: always` 容灾策略。即使遭遇宿主机意外重启或高负载崩溃，数据库与核心节点也能自动拉起恢复，保障无人值守监控的绝对稳定。
 
 ---
 
 ## 🏗️ 架构设计 (Architecture)
 
-ARL-PRO 采用经典且强健的微服务容器编排设计，数据流转清晰高效：
+ARL-PRO 采用经典且强健的微服务容器编排设计，并在网关层进行了现代化的零信任改造：
 
-1.  **网关与展示层 (Frontend)**：Nginx 承载 Vue3 编译后的静态资源，并将 API 请求反向代理穿透至后端。
+1.  **安全网关与展示层 (Frontend / Gateway)**：
+  * **本地**：Vite 本地 HTTPS 服务器 -> Vite 代理转发 -> 后端 HTTP。
+  * **生产**：Cloudflare 边缘节点 (SSL 卸载) -> 加密隧道 (Cloudflared) -> 内部 Nginx (HTTP 80) -> 后端 API。
 2.  **业务逻辑层 (Backend)**：Gunicorn 驱动的 Flask 应用，负责接收前端指令、操作 MongoDB 数据库，并将重量级扫描任务分发至消息队列。
 3.  **消息总线 (Broker)**：RabbitMQ 承担任务排队与状态分发的高吞吐工作。
-4.  **异步执行层 (Workers)**：
-   * **核心节点 (worker)**：执行耗时的端口探测、指纹识别、漏洞扫描。
-   * **GitHub 监控节点 (worker-github)**：常驻监听，捕捉源码与凭证泄露。
-   * **定时调度器 (scheduler)**：精准触发周期性自动化监控计划。
+4.  **异步执行层 (Workers)**：核心节点 (worker)、GitHub 监控节点 (worker-github) 与 定时调度器 (scheduler) 精准协同。
 5.  **持久化存储 (Database)**：MongoDB 负责海量扫描结果与配置资产的落地存储。
 
 ---
@@ -58,50 +53,71 @@ ARL-PRO 采用经典且强健的微服务容器编排设计，数据流转清晰
 
 ### 方案 A：本地极速迭代调试流 (Local Development)
 
-适用于二次开发、编写 PoC 与前后端联调。采用热重载机制，代码修改浏览器/接口即刻生效，互不干扰。
+适用于二次开发、编写 PoC 与前后端联调。采用热重载机制，代码修改浏览器/接口即刻生效。
 
+**1. 准备本地受信任证书 (必须)**
+为了让本地联调拥有合法的 HTTPS 绿锁并解决跨域问题，需先生成本地证书：
+```powershell
+# 1. 在项目根目录下载 mkcert (Windows 为例)
+Invoke-WebRequest -Uri "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-windows-amd64.exe" -OutFile "mkcert.exe"
+
+# 2. 将根证书安装到系统信任库 (如遇弹窗请点击"是")
+.\mkcert.exe -install
+
+# 3. 创建目录并签发 localhost 证书，完成后将文件重命名为 localhost.pem 和 localhost-key.pem
+mkdir certs
+cd certs
+..\mkcert.exe localhost 127.0.0.1
+```
+*(注意：`certs/` 目录已加入 `.gitignore` 防止私钥泄露)*
+
+**2. 启动本地环境**
 ```bash
-git clone [https://github.com/owl234/arl-pro.git](https://github.com/owl234/arl-pro.git)
-cd arl-pro
-
-# 1. 单独构建本地镜像，一键拉起后端底座（挂载本地源码，暴露 5003 端口供 Vite 代理）
+# 启动后端底座（挂载本地源码，暴露 5003 端口供 Vite 代理）
 docker-compose -f docker-compose.local.yml build backend
 docker-compose -f docker-compose.local.yml up -d backend worker worker-github scheduler mongodb rabbitmq
 
-
-# 2. 另起终端，原生启动前端开发服务器（享受 Vite 极速 HMR）
+# 另起终端启动前端（原生支持 https://localhost:3000）
 cd frontend
 npm install -g pnpm
 pnpm install
-pnpm add -D vite@5 @vitejs/plugin-vue@5
 pnpm run dev
 ```
-### 方案 B：生产环境全自动 CI/CD 流 (Production)
 
-适用于部署到 VPS 监控节点的正式环境，实现纯净镜像运行和无人值守的 24/7 监控。
+### 方案 B：生产环境全自动 CI/CD 流 (Production & Zero Trust)
 
-**1. 配置生产节点环境：**
+适用于部署到 VPS 监控节点的正式环境，实现免开放端口的绝对隐身与全自动发布。
 
-在干净的 Ubuntu 生产节点执行初始化脚本：
+**1. 域名与基础环境准备**
+* 将您的主域名托管至 **Cloudflare**，并选择 Free (免费) 计划。
+* 在干净的 Ubuntu 生产节点执行初始化脚本配置基础 Docker 环境：
+  ```bash
+  chmod +x init_ubuntu_env.sh
+  ./init_ubuntu_env.sh
+  ```
+* 在项目仓库 Settings -> Actions -> Runners 中绑定该 Ubuntu 节点。
 
-```bash
-chmod +x init_ubuntu_env.sh
-./init_ubuntu_env.sh
-```
-**2. 注册 GitHub Runner：**
+**2. 建立 Cloudflare Tunnel 隧道**
+* 登录 Cloudflare -> **Zero Trust** 面板。
+* 展开 **Networks** -> **Tunnels**，点击 **Create a tunnel** (选择 Cloudflared 连接器)。
+* 在页面下方获取对应操作系统的 `curl -L ...` 安装命令，并登录您的 Ubuntu 虚拟机执行该命令。
+* 待控制台显示 `Connected` 后进入路由配置：
+  * **Subdomain**: `arl` (您的系统访问前缀)
+  * **Domain**: 选择托管的主域名
+  * **Service Type**: 选择 `HTTP` (🚨 必须选 HTTP，云端已完成加解密)
+  * **Service URL**: `localhost:80`
 
-在仓库 Settings -> Actions -> Runners 中绑定该节点，并为其打上专属标签（如 laptop）。
+**3. 享受全自动部署**
+在本地修改代码后，只需执行 `git push` 到 main 分支。系统因为受外部隧道保护，无需在服务器端修改任何代码或防火墙策略。GitHub Actions 会自动构建并更新内部 Nginx 与后端容器。
 
-**3. 享受全自动部署：**
+**初始账号密码：** `admin / arlpass` （登录后请立即通过 `https://arl.yourdomain.com` 修改）
 
-在本地修改代码后，只需执行 git push 到 main 分支。GitHub Actions 流水线 (ci.yml) 将自动构建纯净的 Docker 镜像，下发至 VPS，并使用 docker-compose.test.yml 自动重启服务（请确保 VPS 已放行 80 端口）。
-
-**初始账号密码：** admin / arlpass （登录后请立即修改）
-
+---
 
 ## 📸 界面预览 (Screenshots)
-精美的现代化控制台，让复杂的数据一目了然。
+*(精美的现代化控制台，让复杂的数据一目了然。)*
 
+---
 
 ## ⚠️ 声明与免责 (Disclaimer)
 本工具（ARL-PRO）仅面向合法授权的企业安全建设、SRC 漏洞挖掘以及安全研究学术交流。
