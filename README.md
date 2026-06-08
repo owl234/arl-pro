@@ -103,9 +103,11 @@ ARL-PRO 采用经典且强健的微服务容器编排设计，并在网关层进
 
 我们为开发者提供了两套编排方案，以平衡“开发效率”与“生产稳定”。
 
-### 方案 A：本地极速迭代调试流 (Local Development)
+### 方案 A：本地极速迭代调试流 
 
 适用于二次开发、编写 PoC 与前后端联调。采用热重载机制，代码修改浏览器/接口即刻生效。
+
+### Windows 版
 
 **1.克隆代码**
 ```bash
@@ -136,6 +138,53 @@ docker-compose -f docker-compose.local.yml build backend
 docker-compose -f docker-compose.local.yml up -d backend worker worker-github scheduler mongodb rabbitmq
 
 # 另起终端启动前端（原生支持 https://localhost:3000）
+cd frontend
+npm install -g pnpm
+pnpm install
+pnpm run dev
+```
+
+### Mac版
+
+**1.克隆代码**
+```bash
+git clone https://github.com/owl234/arl-pro.git
+cd arl-pro
+```
+
+**2. 准备本地受信任证书 (必须)**
+为了让本地联调拥有合法的 HTTPS 绿锁并解决跨域问题，需先生成本地证书。在 macOS 上，推荐使用 Homebrew 来安装`mkcert`：
+```bash
+# 1. 使用 Homebrew 安装 mkcert（如果你的 Mac 还没安装 Homebrew，需先安装）
+brew install mkcert
+
+# (可选) 如果你使用 Firefox 浏览器进行调试，建议额外执行 brew install nss
+
+# 2. 将根证书安装到系统信任库 (可能需要输入你的 Mac 开机密码或验证 Touch ID)
+mkcert -install
+
+# 3. 创建目录并签发 localhost 证书，这里直接指定输出符合项目要求的文件名
+mkdir certs
+cd certs
+mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1
+```
+*(注意：`certs/` 目录已加入 `.gitignore` 防止私钥泄露)*
+
+**3. 启动本地环境**
+
+**启动后端底座**（挂载本地源码，暴露 5003 端口供 Vite 代理）：
+请确保你的 Mac 已经启动了 Docker Desktop。
+```bash
+# 退回项目根目录 (如果你刚刚在 certs 目录下)
+cd ..
+
+# 构建并启动后端与核心依赖
+docker-compose -f docker-compose.local.yml build backend
+docker-compose -f docker-compose.local.yml up -d backend worker worker-github scheduler mongodb rabbitmq
+```
+**启动前端开发服务器**（原生支持 https://localhost:3000）：
+请确保你的 Mac 已经安装了 Node.js 环境。另开启一个新的终端窗口执行：
+```bash
 cd frontend
 npm install -g pnpm
 pnpm install
