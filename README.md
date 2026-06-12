@@ -191,6 +191,20 @@ pnpm install
 pnpm run dev
 ```
 
+
+## 数据库连接(可选)
+
+在数据库客户端(比如 Navicat )中新建MongoDB连接,填入以下环境初始化参数:
+
+- **Host (主机地址):** 127.0.0.1 或 localhost
+- **Port (端口):** 27017
+- **Authentication (认证信息):**
+  - **Database (认证库):** admin (根用户在此库认证)
+  - **Username (用户名):** admin
+  - **Password (密码):** admin
+
+核心业务数据库: ARLV2 (后端数据在此)
+
 ### 方案 B：生产环境全自动 CI/CD 流 (Production & Zero Trust)
 
 适用于部署到 VPS 监控节点的正式环境，实现免开放端口的绝对隐身与全自动发布。

@@ -74,6 +74,8 @@ services:
   mongodb:
     image: mongo:4.0.27
     container_name: arl_mongodb_local
+    ports:
+      - "27017:27017"
     restart: always
     volumes:
       - arl_db_local:/data/db
