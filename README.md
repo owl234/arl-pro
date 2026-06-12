@@ -253,3 +253,29 @@ chmod +x init_env.sh
 本工具（ARL-PRO）仅面向合法授权的企业安全建设、SRC 漏洞挖掘以及安全研究学术交流。
 
 使用本工具进行资产扫描与漏洞探测时，请务必遵守当地法律法规（如《中华人民共和国网络安全法》）及目标平台的测试范围规定。未经授权对目标进行探测属非法行为。使用者因使用本工具造成的任何直接或间接的法律责任与后果，由使用者自行承担，项目作者及贡献者不负任何连带责任。
+
+---
+
+## 🌟 Star 历史 (Star History)
+
+<div align="center">
+
+感谢每一位点亮星星的朋友，你们的支持是我们持续前行的最大动力 ✨
+
+<a href="https://github.com/owl234/arl-pro/stargazers">
+  <img src="https://img.shields.io/github/stars/owl234/arl-pro?style=for-the-badge&logo=github&logoColor=white&label=Stars&color=FFD700&labelColor=1a1a2e" alt="GitHub Stars">
+</a>
+&nbsp;
+<a href="https://github.com/owl234/arl-pro/network/members">
+  <img src="https://img.shields.io/github/forks/owl234/arl-pro?style=for-the-badge&logo=github&logoColor=white&label=Forks&color=4fc08d&labelColor=1a1a2e" alt="GitHub Forks">
+</a>
+&nbsp;
+<a href="https://github.com/owl234/arl-pro/watchers">
+  <img src="https://img.shields.io/github/watchers/owl234/arl-pro?style=for-the-badge&logo=github&logoColor=white&label=Watchers&color=58a6ff&labelColor=1a1a2e" alt="GitHub Watchers">
+</a>
+
+<br/><br/>
+
+[![Star History Chart](https://api.star-history.com/svg?repos=owl234/arl-pro&type=Date)](https://star-history.com/#owl234/arl-pro&Date)
+
+</div>
